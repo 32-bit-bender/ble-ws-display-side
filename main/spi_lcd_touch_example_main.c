@@ -18,6 +18,9 @@
 #include "esp_log.h"
 #include "lvgl.h"
 
+
+#define CONFIG_EXAMPLE_LCD_TOUCH_ENABLED    1
+#define CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610    1
 #if CONFIG_EXAMPLE_LCD_CONTROLLER_ILI9341
 #include "esp_lcd_ili9341.h"
 #elif CONFIG_EXAMPLE_LCD_CONTROLLER_GC9A01
@@ -25,7 +28,8 @@
 #endif
 
 #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-#include "esp_lcd_touch_stmpe610.h"
+//#include "esp_lcd_touch_stmpe610.h"
+#include "esp_lcd_touch_xpt2046.h"
 #endif
 
 static const char *TAG = "example";
@@ -68,16 +72,20 @@ static const char *TAG = "example";
 
 static SemaphoreHandle_t lvgl_mux = NULL;
 
+
+
 #if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
 esp_lcd_touch_handle_t tp = NULL;
 #endif
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
+extern void my_button_example(lv_disp_t *disp);
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
     lv_disp_drv_t *disp_driver = (lv_disp_drv_t *)user_ctx;
-    lv_disp_flush_ready(disp_driver);
+    lv_disp_flush_ready(disp_driver);        esp_lcd_touch_set_mirror_y(tp, false);
+        esp_lcd_touch_set_mirror_x(tp, false);
     return false;
 }
 
@@ -85,7 +93,8 @@ static void example_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_
 {
     esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) drv->user_data;
     int offsetx1 = area->x1;
-    int offsetx2 = area->x2;
+    int offsetx2 = area->x2;        esp_lcd_touch_set_mirror_y(tp, false);
+        esp_lcd_touch_set_mirror_x(tp, false);
     int offsety1 = area->y1;
     int offsety2 = area->y2;
     // copy a buffer's content to a specific area of the display
@@ -268,7 +277,7 @@ void app_main(void)
 
 #if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
-    esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_STMPE610_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
+    esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
     // Attach the TOUCH to the SPI bus
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
 
@@ -285,8 +294,8 @@ void app_main(void)
     };
 
 #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-    ESP_LOGI(TAG, "Initialize touch controller STMPE610");
-    ESP_ERROR_CHECK(esp_lcd_touch_new_spi_stmpe610(tp_io_handle, &tp_cfg, &tp));
+    ESP_LOGI(TAG, "Initialize touch controller XTP2046");
+    ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
 #endif // CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
 #endif // CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
 
@@ -343,7 +352,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Display LVGL Meter Widget");
     // Lock the mutex due to the LVGL APIs are not thread-safe
     if (example_lvgl_lock(-1)) {
-        example_lvgl_demo_ui(disp);
+        my_button_example(disp);
         // Release the mutex
         example_lvgl_unlock();
     }

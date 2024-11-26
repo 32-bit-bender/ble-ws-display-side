@@ -13,5 +13,10 @@
     ],
     "idf.portWin": "COM5",
     "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf5.3_py3.11_env\\Scripts\\python.exe",
-    "idf.toolsPathWin": "C:\\Espressif"
+    "idf.toolsPathWin": "C:\\Espressif",
+    "files.associations": {
+        "esp_lcd_touch_stmpe610.h": "c",
+        "esp_lcd_gc9a01.h": "c",
+        "esp_lcd_touch.h": "c"
+    }
 }
