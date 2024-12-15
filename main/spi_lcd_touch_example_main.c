@@ -17,7 +17,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "lvgl.h"
-
+#include "lv_examples.h"
 
 #define CONFIG_EXAMPLE_LCD_TOUCH_ENABLED    1
 #define CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610    1
@@ -80,6 +80,7 @@ esp_lcd_touch_handle_t tp = NULL;
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
 extern void my_button_example(lv_disp_t *disp);
+extern void lv_my_menu (lv_disp_t* disp);
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -162,16 +163,19 @@ static void example_lvgl_touch_cb(lv_indev_drv_t * drv, lv_indev_data_t * data)
 
     /* Get coordinates */
     bool touchpad_pressed = esp_lcd_touch_get_coordinates(drv->user_data, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
-
+    
     if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
+        data->point.x = EXAMPLE_LCD_H_RES - touchpad_x[0];
         data->point.y = touchpad_y[0];
         data->state = LV_INDEV_STATE_PRESSED;
+        printf("x pressed: %d , y pressed: %d \r\n",touchpad_x[0], touchpad_y[0] );
+
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
     }
 }
 #endif
+
 
 static void example_increase_lvgl_tick(void *arg)
 {
@@ -352,7 +356,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Display LVGL Meter Widget");
     // Lock the mutex due to the LVGL APIs are not thread-safe
     if (example_lvgl_lock(-1)) {
-        my_button_example(disp);
+        lv_my_menu(disp);
+        //my_button_example(disp);
         // Release the mutex
         example_lvgl_unlock();
     }
