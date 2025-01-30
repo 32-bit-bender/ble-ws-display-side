@@ -8,7 +8,18 @@
 #include "lv_conf.h"
 #include "lvgl.h"
 #include "esp_log.h"
+#include "stdio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "blecent.h"
 
+uint16_t temp_high = 0;
+uint16_t temp_low = 0;
+uint16_t hum_high = 0;
+lv_obj_t *live_tmp_label;
+lv_obj_t *live_hum_label;
+char temp[20];
+char hum[20];
 
 static lv_style_t style_con_label;
 static lv_style_t style_con2_label;
@@ -18,6 +29,11 @@ static lv_style_t style_tmp_page_bg;
 static lv_style_t style_hum_page_bg;
 static lv_style_t style_container_text;
 static lv_style_t style_data_label;
+static lv_obj_t* ble_status_label;
+static lv_style_t style_ble_status_on;
+static lv_style_t style_ble_status_off;
+
+extern uint8_t sensor_read_data[5];
 
 
 static void style_init (void)
@@ -88,6 +104,32 @@ static void style_init (void)
   lv_style_init(&style_data_label);
   lv_style_set_text_font(&style_data_label,&lv_font_montserrat_18); 
   //lv_style_set_text_align(&style_data_label,LV_TEXT); 
+
+  //ble ON label style
+  lv_style_init(&style_ble_status_on);
+  lv_style_set_radius(&style_ble_status_on, 10);
+  lv_style_set_bg_opa(&style_ble_status_on, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_ble_status_on, lv_palette_lighten(LV_PALETTE_LIGHT_GREEN, 4));
+  lv_style_set_bg_grad_color(&style_ble_status_on, lv_palette_main(LV_PALETTE_LIGHT_GREEN));
+  lv_style_set_bg_grad_dir(&style_ble_status_on, LV_GRAD_DIR_VER);
+  lv_style_set_border_color(&style_ble_status_on, lv_color_black());
+  lv_style_set_border_opa(&style_ble_status_on, LV_OPA_0);
+  lv_style_set_border_width(&style_ble_status_on, 0);
+  lv_style_set_text_font(&style_ble_status_on,&lv_font_montserrat_24);
+  lv_style_set_text_align(&style_ble_status_on, LV_TEXT_ALIGN_CENTER);
+
+  //ble OFF label style
+  lv_style_init(&style_ble_status_off);
+  lv_style_set_radius(&style_ble_status_off, 10);
+  lv_style_set_bg_opa(&style_ble_status_off, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_ble_status_off, lv_palette_lighten(LV_PALETTE_RED, 4));
+  lv_style_set_bg_grad_color(&style_ble_status_off, lv_palette_main(LV_PALETTE_RED));
+  lv_style_set_bg_grad_dir(&style_ble_status_off, LV_GRAD_DIR_VER);
+  lv_style_set_border_color(&style_ble_status_off, lv_color_black());
+  lv_style_set_border_opa(&style_ble_status_off, LV_OPA_0);
+  lv_style_set_border_width(&style_ble_status_off, 0);
+  lv_style_set_text_font(&style_ble_status_off,&lv_font_montserrat_24);
+  lv_style_set_text_align(&style_ble_status_off, LV_TEXT_ALIGN_CENTER);
 }
 
 static void event_handler(lv_event_t * e)
@@ -97,14 +139,22 @@ static void event_handler(lv_event_t * e)
     if(code == LV_EVENT_VALUE_CHANGED) {
         LV_UNUSED(obj);
         LV_LOG_USER("State: %s\n", lv_obj_has_state(obj, LV_STATE_CHECKED) ? "On" : "Off");
+        if (lv_obj_has_state(obj, LV_STATE_CHECKED))
+        {
+          lv_obj_add_style(ble_status_label, &style_ble_status_on,0);
+          lv_label_set_text(ble_status_label, "BLE ON");
+          ble_start();
+        } else {
+          lv_obj_add_style(ble_status_label, &style_ble_status_off,0);
+          lv_label_set_text(ble_status_label, "BLE OFF");
+          ble_stop();
+        }
     }
 }
 
 void lv_my_menu(lv_disp_t *disp)
 {
     lv_obj_t *scr = lv_disp_get_scr_act(disp);
-    lv_obj_t *live_tmp_label;
-    lv_obj_t *live_hum_label;
     style_init();
 
     /*Create a menu object*/
@@ -139,7 +189,10 @@ void lv_my_menu(lv_disp_t *disp)
 
     /*******CREATING TEMPERATURE LIVE VALUE********/
     live_tmp_label= lv_label_create(sub_1_page);
-    lv_label_set_text(live_tmp_label,"<TEMPERATURE> °C");
+    temp_high = sensor_read_data [0];
+    temp_low  = sensor_read_data [1];
+    snprintf(temp, sizeof(temp), "%d,%d °C",temp_high, temp_low);
+    lv_label_set_text(live_tmp_label,temp);
     lv_obj_add_style(live_tmp_label, &style_data_label,0);
 
     /*******SECOND SUBPAGE******/
@@ -158,7 +211,9 @@ void lv_my_menu(lv_disp_t *disp)
 
     /*******CREATING HUMIDITY LIVE VALUE********/
     live_hum_label= lv_label_create(sub_2_page);
-    lv_label_set_text(live_hum_label,"<HUMIDITY> g/m3");
+    hum_high = sensor_read_data[2];
+    snprintf(hum, sizeof(hum), "%d g/m3",hum_high);
+    lv_label_set_text(live_hum_label,hum);
     lv_obj_add_style(live_hum_label, &style_data_label,0);
 
     /*Create a main page*/
@@ -191,5 +246,32 @@ void lv_my_menu(lv_disp_t *disp)
     lv_obj_align(sw, LV_ALIGN_TOP_LEFT,10,20);
     lv_obj_set_size(sw, 80, 40);
     lv_obj_add_style(sw, &style_switch, LV_STATE_DEFAULT);
+    // /*************BLE LABEL CREATION******************/
+    ble_status_label = lv_label_create(scr);
+    lv_obj_align(ble_status_label, LV_ALIGN_TOP_LEFT,100,25);
+    lv_label_set_text(ble_status_label, "BLE ...");
+    lv_obj_set_size(ble_status_label,125, 50);
+    lv_obj_add_style(ble_status_label, &style_ble_status_on,0);
+    lv_obj_set_content_height(ble_status_label, 25);
+}
 
+void periodic_sensor_reads(void* pvParameters)
+{
+    while (1)
+    {
+        if(lv_obj_get_screen(live_tmp_label) == lv_scr_act()) {
+            temp_high = sensor_read_data [0];
+            temp_low  = sensor_read_data [1];
+            snprintf(temp, sizeof(temp), "%d,%d °C",temp_high, temp_low);
+            lv_label_set_text(live_tmp_label, temp);
+
+            hum_high = sensor_read_data [2];
+            snprintf(hum, sizeof(hum), "%d g/m3",hum_high);
+            lv_label_set_text(live_hum_label,hum);
+        }
+
+        // lv_label_set_text_fmt(live_tmp_label,temp);
+        // lv_event_send(live_tmp_label,LV_EVENT_REFRESH, NULL);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
 }
