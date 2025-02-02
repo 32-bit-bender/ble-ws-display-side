@@ -469,42 +469,6 @@ void ble_stop() {
     vTaskDelay(200/portTICK_PERIOD_MS);
 }
 
-#if CONFIG_EXAMPLE_INIT_DEINIT_LOOP
-/* This function showcases stack init and deinit procedure. */
-static void stack_init_deinit(void)
-{
-    int rc;
-    while(1) {
-
-        vTaskDelay(1000);
-
-        ESP_LOGI(tag, "Deinit host");
-
-        rc = nimble_port_stop();
-        if (rc == 0) {
-            nimble_port_deinit();
-        } else {
-            ESP_LOGI(tag, "Nimble port stop failed, rc = %d", rc);
-            break;
-        }
-
-        vTaskDelay(1000);
-
-        ESP_LOGI(tag, "Init host");
-
-        rc = nimble_port_init();
-        if (rc != ESP_OK) {
-            ESP_LOGI(tag, "Failed to init nimble %d ", rc);
-            break;
-        }
-
-        nimble_port_freertos_init(blecent_host_task);
-
-        ESP_LOGI(tag, "Waiting for 1 second");
-    }
-}
-#endif
-
 
 void nimble_central_init()
 {
